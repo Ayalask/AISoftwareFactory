@@ -61,4 +61,4 @@ ${renderHeroDots()}
   });
 }
 
-module.exports = { renderLanding };
+module.exports = { renderLanding, SLIDE_COUNT };

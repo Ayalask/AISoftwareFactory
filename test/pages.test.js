@@ -1,6 +1,7 @@
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const app = require('../server.js');
+const { SLIDE_COUNT } = require('../views/landing.js');
 
 let server;
 let baseUrl;
@@ -109,6 +110,14 @@ test('landing page hero', async (t) => {
     const dotMatches = html.match(/data-slide-target=/g) || [];
     assert.equal(slideMatches.length, 5);
     assert.equal(dotMatches.length, 5);
+  });
+
+  await t.test('GET /css/styles.css has a gradient rule for every hero slide', async () => {
+    const res = await fetch(`${baseUrl}/css/styles.css`);
+    const css = await res.text();
+    for (let n = 1; n <= SLIDE_COUNT; n += 1) {
+      assert.match(css, new RegExp(`\\.hero-slide--${n}\\s*\\{`));
+    }
   });
 
   await t.test('GET / has exactly one active hero slide', async () => {

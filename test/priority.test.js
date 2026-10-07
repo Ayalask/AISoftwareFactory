@@ -77,6 +77,8 @@ test('task priority', async (t) => {
     assert.match(html, /data-priority="medium"/);
     assert.match(html, /data-priority="low"/);
     assert.match(html, /data-priority="high"/);
+    assert.match(html, /data-id="/);
+    assert.match(html, /class="priority-select"/);
   });
 
   await t.test('GET /dashboard?priority=high returns only high-priority todos', async () => {
