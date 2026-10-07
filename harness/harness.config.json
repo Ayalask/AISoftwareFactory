@@ -1,6 +1,6 @@
 {
   "static": "",
-  "unit": "",
-  "unit_count_pattern": "",
+  "unit": "npm test",
+  "unit_count_pattern": "# tests (\\d+)",
   "description": "Ordinary project checks only. Configure real commands. Runtime environment and scenarios are separate inputs."
 }

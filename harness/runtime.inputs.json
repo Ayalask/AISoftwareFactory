@@ -4,9 +4,9 @@
   "holdout": ".factory/holdout/HOLDOUT.md",
   "driver": "http",
   "http": {
-    "start": "",
+    "start": "npm start",
     "health_path": "/health",
-    "health_contains": "",
+    "health_contains": "ok",
     "boot_timeout_s": 45,
     "env": {}
   },
