@@ -1,12 +1,12 @@
 {
-  name: aifactory,
-  version: 0.1.0,
-  main: server.js,
-  scripts: {
-    start: node server.js,
-    test: echo tests
+  "name": "aifactory",
+  "version": "0.1.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
   },
-  dependencies: {
-    express: ^4.18.2
+  "dependencies": {
+    "express": "^4.18.2"
   }
 }
