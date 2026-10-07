@@ -1,0 +1,256 @@
+:root {
+  --color-primary: #2563EB;
+  --color-secondary: #8B5CF6;
+  --color-accent: #F59E0B;
+  --color-success: #10B981;
+  --color-warning: #EF4444;
+  --color-bg: #F8FAFC;
+  --color-surface-dark: #0F172A;
+  --color-text: #1E293B;
+  --color-text-light: #E2E8F0;
+
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 32px;
+
+  --t-fade: 300ms ease-in-out;
+  --t-slide: 400ms ease-in-out;
+  --t-hover: 200ms ease;
+
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+h1, h2, h3, h4 {
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0 0 var(--space-2);
+}
+
+h1 { font-size: 48px; }
+h2 { font-size: 32px; }
+h3 { font-size: 24px; }
+
+p {
+  margin: 0 0 var(--space-2);
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+
+.container {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 var(--space-3);
+}
+
+.btn {
+  display: inline-block;
+  padding: var(--space-1) var(--space-3);
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: background-color var(--t-hover), transform var(--t-hover);
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+.btn-primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--color-primary);
+  border: 2px solid var(--color-primary);
+}
+
+.btn-secondary:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/*
+ * Real hero photography drops in later as a `background-image` on each
+ * `.hero-slide--N` rule in this file — no other markup changes needed.
+ */
+
+.hero {
+  position: relative;
+  width: 100%;
+  height: 480px;
+  overflow: hidden;
+}
+
+.carousel {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-slide {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.hero-slide--1 { background: linear-gradient(135deg, var(--color-primary), var(--color-secondary)); }
+.hero-slide--2 { background: linear-gradient(135deg, var(--color-secondary), var(--color-accent)); }
+.hero-slide--3 { background: linear-gradient(135deg, var(--color-accent), var(--color-success)); }
+.hero-slide--4 { background: linear-gradient(135deg, var(--color-success), var(--color-primary)); }
+.hero-slide--5 { background: linear-gradient(135deg, var(--color-primary), var(--color-surface-dark)); }
+
+.hero-content {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-3);
+  background: rgba(15, 23, 42, 0.35);
+  color: #fff;
+  gap: var(--space-2);
+}
+
+.hero-content h1 {
+  color: #fff;
+  max-width: 800px;
+}
+
+.carousel-dots {
+  position: absolute;
+  bottom: var(--space-2);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: var(--space-1);
+}
+
+.carousel-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+}
+
+.carousel-dot[aria-current="true"] {
+  background: #fff;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+@media (max-width: 768px) {
+  .hero {
+    height: 320px;
+  }
+
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+#dashboard {
+  padding: var(--space-4) 0;
+}
+
+#dashboard .dashboard-intro {
+  margin-bottom: var(--space-3);
+}
+
+.todo-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: var(--space-3);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.1);
+}
+
+.priority { font-weight: bold; }
+.priority-low { color: var(--color-success); }
+.priority-medium { color: var(--color-accent); }
+.priority-high { color: var(--color-warning); }
+
+#todo-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-3) 0 0;
+}
+
+#todo-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--color-bg);
+}
+
+.page-hero {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  color: #fff;
+  padding: var(--space-4) 0;
+  text-align: center;
+}
+
+.page-hero h1 {
+  color: #fff;
+}
+
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  background: var(--color-primary);
+  color: #fff;
+  padding: var(--space-1) var(--space-2);
+  z-index: 1000;
+}
+
+.skip-link:focus {
+  left: 0;
+}

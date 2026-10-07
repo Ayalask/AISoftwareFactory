@@ -61,8 +61,8 @@ test('todo API', async (t) => {
     assert.equal(res.status, 400);
   });
 
-  await t.test('displays created todos on GET /', async () => {
-    const res = await fetch(`${baseUrl}/`);
+  await t.test('displays created todos on GET /dashboard', async () => {
+    const res = await fetch(`${baseUrl}/dashboard`);
     assert.equal(res.status, 200);
     const html = await res.text();
     assert.match(html, /Buy milk/);

@@ -1,6 +1,11 @@
 const express = require('express');
+const path = require('path');
 const { randomUUID } = require('crypto');
 const { execFileSync } = require('child_process');
+const { renderLayout } = require('./views/layout');
+const { renderDashboard } = require('./views/dashboard');
+const { renderLanding } = require('./views/landing');
+const { renderAbout, renderFaq, renderFeatures, renderContact } = require('./views/content');
 
 const PORT = process.env.PORT || 8000;
 const MAX_TITLE_LENGTH = 200;
@@ -19,15 +24,6 @@ function getBuildId() {
 const BUILD_ID = getBuildId();
 const todos = [];
 
-function escapeHtml(value) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 function normalizePriority(value) {
   if (typeof value !== 'string') {
     return null;
@@ -36,92 +32,9 @@ function normalizePriority(value) {
   return PRIORITIES.includes(normalized) ? normalized : null;
 }
 
-function priorityLabel(priority) {
-  return priority.charAt(0).toUpperCase() + priority.slice(1);
-}
-
-function renderPage(filter) {
-  const visible = filter ? todos.filter((todo) => todo.priority === filter) : todos;
-  const items = visible
-    .map((todo) => `    <li data-id="${todo.id}" data-priority="${todo.priority}">
-      <span class="title">${escapeHtml(todo.title)}</span>
-      <span class="priority priority-${todo.priority}">${priorityLabel(todo.priority)}</span>
-      <select class="priority-select">
-${PRIORITIES.map((p) => `        <option value="${p}"${p === todo.priority ? ' selected' : ''}>${priorityLabel(p)}</option>`).join('\n')}
-      </select>
-    </li>`)
-    .join('\n');
-  const newPriorityOptions = PRIORITIES
-    .map((p) => `      <option value="${p}"${p === DEFAULT_PRIORITY ? ' selected' : ''}>${priorityLabel(p)}</option>`)
-    .join('\n');
-  const filterLinks = [
-    `    <a href="/"${!filter ? ' aria-current="page"' : ''}>All</a>`,
-    ...PRIORITIES.map((p) => `    <a href="/?priority=${p}"${filter === p ? ' aria-current="page"' : ''}>${priorityLabel(p)}</a>`),
-  ].join('\n');
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Todo List</title>
-  <style>
-    .priority { font-weight: bold; }
-    .priority-low { color: #2a7a2a; }
-    .priority-medium { color: #b8860b; }
-    .priority-high { color: #c0392b; }
-  </style>
-</head>
-<body>
-  <h1>Todo List</h1>
-  <form id="todo-form">
-    <input type="text" id="title" name="title" placeholder="What needs doing?" required>
-    <select id="new-priority" name="priority">
-${newPriorityOptions}
-    </select>
-    <button type="submit">Add Todo</button>
-  </form>
-  <nav id="priority-filter">
-${filterLinks}
-  </nav>
-  <ul id="todo-list">
-${items}
-  </ul>
-  <script>
-    document.getElementById('todo-form').addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const input = document.getElementById('title');
-      const priority = document.getElementById('new-priority');
-      const response = await fetch('/api/todos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: input.value, priority: priority.value }),
-      });
-      if (response.ok) {
-        window.location.reload();
-      }
-    });
-
-    document.getElementById('todo-list').addEventListener('change', async (event) => {
-      if (!event.target.classList.contains('priority-select')) {
-        return;
-      }
-      const id = event.target.closest('li').dataset.id;
-      const response = await fetch('/api/todos/' + id, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priority: event.target.value }),
-      });
-      if (response.ok) {
-        window.location.reload();
-      }
-    });
-  </script>
-</body>
-</html>
-`;
-}
-
 const app = express();
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
@@ -131,15 +44,46 @@ app.get('/build-id', (req, res) => {
   res.json({ id: BUILD_ID });
 });
 
-app.get('/', (req, res) => {
+app.get('/dashboard', (req, res) => {
   const requested = req.query.priority;
   const filter = requested === undefined ? null : normalizePriority(requested);
   if (filter === null && requested !== undefined) {
-    return res.status(400).type('html').send(
-      `<!DOCTYPE html>\n<html lang="en"><body><h1>Invalid priority</h1>` +
-      `<p>priority must be one of ${PRIORITIES.join(', ')}</p></body></html>\n`);
+    return res.status(400).type('html').send(renderLayout({
+      title: 'Invalid priority - TodoApp',
+      description: 'The requested priority filter is not recognized.',
+      activeHref: '/dashboard',
+      main: `  <section class="container">
+    <h1>Invalid priority</h1>
+    <p>priority must be one of ${PRIORITIES.join(', ')}</p>
+  </section>`,
+    }));
   }
-  res.type('html').send(renderPage(filter));
+  res.type('html').send(renderDashboard({
+    todos,
+    filter,
+    priorities: PRIORITIES,
+    defaultPriority: DEFAULT_PRIORITY,
+  }));
+});
+
+app.get('/', (req, res) => {
+  res.type('html').send(renderLanding());
+});
+
+app.get('/about', (req, res) => {
+  res.type('html').send(renderAbout());
+});
+
+app.get('/faq', (req, res) => {
+  res.type('html').send(renderFaq());
+});
+
+app.get('/features', (req, res) => {
+  res.type('html').send(renderFeatures());
+});
+
+app.get('/contact', (req, res) => {
+  res.type('html').send(renderContact());
 });
 
 app.post('/api/todos', (req, res) => {
