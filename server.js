@@ -15,7 +15,8 @@ function resolveBuildId() {
     return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: __dirname })
       .toString()
       .trim();
-  } catch {
+  } catch (err) {
+    console.error('resolveBuildId: git rev-parse HEAD failed, falling back to "unknown"', err);
     return 'unknown';
   }
 }
@@ -61,8 +62,8 @@ function createApp() {
 }
 
 if (require.main === module) {
-  createApp().listen(PORT, () => {
-    console.log(`listening on port ${PORT}`);
+  const server = createApp().listen(PORT, () => {
+    console.log(`listening on port ${server.address().port}`);
   });
 }
 

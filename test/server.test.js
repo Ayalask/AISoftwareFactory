@@ -1,5 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const path = require('node:path');
+const { spawn } = require('node:child_process');
 const { createApp, MAX_TODOS, MAX_TITLE_LENGTH } = require('../server');
 
 function startServer() {
@@ -131,5 +133,41 @@ test('GET /build-id responds with an id', async () => {
     assert.ok(body.id.length > 0);
   } finally {
     await stopServer(server);
+  }
+});
+
+test('GET /build-id returns FACTORY_RUNTIME_CANDIDATE verbatim when set', async () => {
+  // BUILD_ID is resolved once at module load, so the candidate env var must be
+  // set before the module is required - an in-process require() can't exercise
+  // this branch, hence the child process.
+  const candidate = `probe-${Date.now()}`;
+  const child = spawn(process.execPath, [path.join(__dirname, '..', 'server.js')], {
+    cwd: path.join(__dirname, '..'),
+    env: { ...process.env, PORT: '0', FACTORY_RUNTIME_CANDIDATE: candidate },
+    stdio: ['ignore', 'pipe', 'inherit'],
+  });
+
+  try {
+    const port = await new Promise((resolve, reject) => {
+      let output = '';
+      const onData = (chunk) => {
+        output += chunk;
+        const match = output.match(/listening on port (\d+)/);
+        if (match) {
+          child.stdout.off('data', onData);
+          resolve(Number(match[1]));
+        }
+      };
+      child.stdout.on('data', onData);
+      child.once('error', reject);
+      child.once('exit', (code) => reject(new Error(`server exited early with code ${code}`)));
+    });
+
+    const res = await fetch(`http://127.0.0.1:${port}/build-id`);
+    assert.equal(res.status, 200);
+    const body = await res.json();
+    assert.equal(body.id, candidate);
+  } finally {
+    child.kill();
   }
 });
