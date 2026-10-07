@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Todo List</title>
+</head>
+<body>
+  <h1>Todo List</h1>
+  <form id="todo-form">
+    <input type="text" id="todo-title" placeholder="What needs doing?" maxlength="199" required>
+    <button type="submit">Add Todo</button>
+  </form>
+  <p id="error" style="color: red;"></p>
+  <ul id="todo-list"></ul>
+
+  <script>
+    const form = document.getElementById('todo-form');
+    const input = document.getElementById('todo-title');
+    const list = document.getElementById('todo-list');
+    const error = document.getElementById('error');
+
+    function renderTodo(todo) {
+      const li = document.createElement('li');
+      li.textContent = todo.title;
+      list.appendChild(li);
+    }
+
+    async function loadTodos() {
+      const res = await fetch('/api/todos');
+      const todos = await res.json();
+      todos.forEach(renderTodo);
+    }
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      error.textContent = '';
+      const res = await fetch('/api/todos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: input.value }),
+      });
+      if (!res.ok) {
+        const body = await res.json();
+        error.textContent = body.error || 'Failed to add todo';
+        return;
+      }
+      const todo = await res.json();
+      renderTodo(todo);
+      input.value = '';
+    });
+
+    loadTodos();
+  </script>
+</body>
+</html>

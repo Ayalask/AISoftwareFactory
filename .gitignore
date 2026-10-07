@@ -2,6 +2,7 @@
 __pycache__/
 *.pyc
 *.pyo
+node_modules/
 .factory/consumer.json
 .factory/retired/
 .factory/STOP
