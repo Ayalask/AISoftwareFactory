@@ -67,8 +67,8 @@ test('task priority', async (t) => {
     assert.equal(res.status, 400);
   });
 
-  await t.test('GET / shows each todo label and data-priority attribute', async () => {
-    const res = await fetch(`${baseUrl}/`);
+  await t.test('GET /dashboard shows each todo label and data-priority attribute', async () => {
+    const res = await fetch(`${baseUrl}/dashboard`);
     assert.equal(res.status, 200);
     const html = await res.text();
     assert.match(html, /Medium task/);
@@ -79,8 +79,8 @@ test('task priority', async (t) => {
     assert.match(html, /data-priority="high"/);
   });
 
-  await t.test('GET /?priority=high returns only high-priority todos', async () => {
-    const res = await fetch(`${baseUrl}/?priority=high`);
+  await t.test('GET /dashboard?priority=high returns only high-priority todos', async () => {
+    const res = await fetch(`${baseUrl}/dashboard?priority=high`);
     assert.equal(res.status, 200);
     const html = await res.text();
     assert.match(html, /High task/);
@@ -88,8 +88,8 @@ test('task priority', async (t) => {
     assert.doesNotMatch(html, /Medium task/);
   });
 
-  await t.test('GET /?priority=urgent rejects an unknown filter value', async () => {
-    const res = await fetch(`${baseUrl}/?priority=urgent`);
+  await t.test('GET /dashboard?priority=urgent rejects an unknown filter value', async () => {
+    const res = await fetch(`${baseUrl}/dashboard?priority=urgent`);
     assert.equal(res.status, 400);
   });
 
@@ -113,7 +113,7 @@ test('task priority', async (t) => {
     const body = await res.json();
     assert.equal(body.priority, 'high');
 
-    const follow = await fetch(`${baseUrl}/?priority=high`);
+    const follow = await fetch(`${baseUrl}/dashboard?priority=high`);
     const html = await follow.text();
     assert.match(html, /Needs repriority/);
   });
@@ -126,7 +126,7 @@ test('task priority', async (t) => {
     });
     assert.equal(res.status, 400);
 
-    const follow = await fetch(`${baseUrl}/?priority=high`);
+    const follow = await fetch(`${baseUrl}/dashboard?priority=high`);
     const html = await follow.text();
     assert.match(html, /Needs repriority/);
   });
@@ -149,11 +149,11 @@ test('task priority', async (t) => {
     assert.equal(res.status, 404);
   });
 
-  await t.test('GET / shows the create-form priority select and default filter nav', async () => {
-    const res = await fetch(`${baseUrl}/`);
+  await t.test('GET /dashboard shows the create-form priority select and default filter nav', async () => {
+    const res = await fetch(`${baseUrl}/dashboard`);
     const html = await res.text();
     assert.match(html, /id="new-priority"/);
     assert.match(html, /<option value="medium" selected>Medium<\/option>/);
-    assert.match(html, /<a href="\/" aria-current="page">All<\/a>/);
+    assert.match(html, /<a href="\/dashboard" aria-current="page">All<\/a>/);
   });
 });
