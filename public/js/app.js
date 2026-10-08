@@ -22,10 +22,15 @@
       event.preventDefault();
       const input = document.getElementById('title');
       const priority = document.getElementById('new-priority');
+      const dueDate = document.getElementById('new-due-date');
+      const payload = { title: input.value, priority: priority.value };
+      if (dueDate && dueDate.value) {
+        payload.dueDate = dueDate.value;
+      }
       const response = await fetch('/api/todos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: input.value, priority: priority.value }),
+        body: JSON.stringify(payload),
       });
       if (response.ok) {
         window.location.reload();
@@ -47,6 +52,27 @@
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ priority: event.target.value }),
+      });
+      if (response.ok) {
+        window.location.reload();
+      }
+    });
+  }
+
+  function setUpDueDateInput() {
+    const list = document.getElementById('todo-list');
+    if (!list) {
+      return;
+    }
+    list.addEventListener('change', async (event) => {
+      if (!event.target.classList.contains('due-date-input')) {
+        return;
+      }
+      const id = event.target.closest('li').dataset.id;
+      const response = await fetch('/api/todos/' + id, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dueDate: event.target.value || null }),
       });
       if (response.ok) {
         window.location.reload();
@@ -203,6 +229,7 @@
   setUpHamburger();
   setUpTodoForm();
   setUpPrioritySelect();
+  setUpDueDateInput();
   setUpHeroCarousel();
   setUpFeatureCarousel();
   setUpFaqSearch();
