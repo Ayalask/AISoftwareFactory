@@ -3,6 +3,7 @@ const path = require('path');
 const { randomUUID } = require('crypto');
 const { execFileSync } = require('child_process');
 const { PRIORITIES, DEFAULT_PRIORITY, normalizePriority } = require('./priority');
+const { DUE_FILTERS, isValidDueDate, normalizeDueFilter } = require('./dueDate');
 const views = require('./views');
 
 const PORT = process.env.PORT || 8000;
@@ -40,6 +41,41 @@ function resolvePriorityFilter(req, res) {
   return { filter, ok: true };
 }
 
+function invalidDueFilterPage() {
+  return `<!DOCTYPE html>\n<html lang="en"><body><h1>Invalid due date filter</h1>` +
+    `<p>due must be one of ${DUE_FILTERS.join(', ')}</p></body></html>\n`;
+}
+
+function invalidSortPage() {
+  return `<!DOCTYPE html>\n<html lang="en"><body><h1>Invalid sort</h1>` +
+    `<p>sort must be one of dueDate, -dueDate</p></body></html>\n`;
+}
+
+function resolveDueFilter(req, res) {
+  const requested = req.query.due;
+  if (requested === undefined) {
+    return { filter: null, ok: true };
+  }
+  const filter = normalizeDueFilter(requested);
+  if (filter === null) {
+    res.status(400).type('html').send(invalidDueFilterPage());
+    return { filter: null, ok: false };
+  }
+  return { filter, ok: true };
+}
+
+function resolveSort(req, res) {
+  const requested = req.query.sort;
+  if (requested === undefined) {
+    return { sort: null, ok: true };
+  }
+  if (requested !== 'dueDate' && requested !== '-dueDate') {
+    res.status(400).type('html').send(invalidSortPage());
+    return { sort: null, ok: false };
+  }
+  return { sort: requested, ok: true };
+}
+
 function isValidContactEmail(email) {
   const at = email.indexOf('@');
   return at > 0 && at < email.length - 1 && email.indexOf('@', at + 1) === -1;
@@ -62,7 +98,15 @@ app.get('/', (req, res) => {
   if (!ok) {
     return;
   }
-  res.type('html').send(views.renderHome({ todos, filter }));
+  const { filter: dueFilter, ok: dueOk } = resolveDueFilter(req, res);
+  if (!dueOk) {
+    return;
+  }
+  const { sort, ok: sortOk } = resolveSort(req, res);
+  if (!sortOk) {
+    return;
+  }
+  res.type('html').send(views.renderHome({ todos, filter, dueFilter, sort }));
 });
 
 app.get('/dashboard', (req, res) => {
@@ -70,7 +114,15 @@ app.get('/dashboard', (req, res) => {
   if (!ok) {
     return;
   }
-  res.type('html').send(views.renderDashboard({ todos, filter }));
+  const { filter: dueFilter, ok: dueOk } = resolveDueFilter(req, res);
+  if (!dueOk) {
+    return;
+  }
+  const { sort, ok: sortOk } = resolveSort(req, res);
+  if (!sortOk) {
+    return;
+  }
+  res.type('html').send(views.renderDashboard({ todos, filter, dueFilter, sort }));
 });
 
 app.get('/about', (req, res) => {
@@ -109,11 +161,20 @@ app.post('/api/todos', (req, res) => {
     return res.status(400).json({ error: `priority must be one of ${PRIORITIES.join(', ')}` });
   }
 
+  const requestedDueDate = req.body?.dueDate;
+  let dueDate = null;
+  if (requestedDueDate !== undefined && requestedDueDate !== null && requestedDueDate !== '') {
+    if (!isValidDueDate(requestedDueDate)) {
+      return res.status(400).json({ error: 'dueDate must be a valid date in YYYY-MM-DD format' });
+    }
+    dueDate = requestedDueDate;
+  }
+
   if (todos.length >= MAX_TODOS) {
     return res.status(400).json({ error: `cannot store more than ${MAX_TODOS} todos` });
   }
 
-  const todo = { id: randomUUID(), title, priority, created: new Date().toISOString() };
+  const todo = { id: randomUUID(), title, priority, dueDate, created: new Date().toISOString() };
   todos.push(todo);
   res.status(201).json(todo);
 });
@@ -123,11 +184,35 @@ app.patch('/api/todos/:id', (req, res) => {
   if (!todo) {
     return res.status(404).json({ error: 'todo not found' });
   }
-  const priority = normalizePriority(req.body?.priority);
-  if (priority === null) {
-    return res.status(400).json({ error: `priority must be one of ${PRIORITIES.join(', ')}` });
+
+  const body = req.body ?? {};
+  const hasPriority = Object.prototype.hasOwnProperty.call(body, 'priority');
+  const hasDueDate = Object.prototype.hasOwnProperty.call(body, 'dueDate');
+  if (!hasPriority && !hasDueDate) {
+    return res.status(400).json({ error: 'priority or dueDate must be provided' });
   }
+
+  let priority = todo.priority;
+  if (hasPriority) {
+    priority = normalizePriority(body.priority);
+    if (priority === null) {
+      return res.status(400).json({ error: `priority must be one of ${PRIORITIES.join(', ')}` });
+    }
+  }
+
+  let dueDate = todo.dueDate;
+  if (hasDueDate) {
+    if (body.dueDate === null || body.dueDate === '') {
+      dueDate = null;
+    } else if (isValidDueDate(body.dueDate)) {
+      dueDate = body.dueDate;
+    } else {
+      return res.status(400).json({ error: 'dueDate must be a valid date in YYYY-MM-DD format' });
+    }
+  }
+
   todo.priority = priority;
+  todo.dueDate = dueDate;
   res.json(todo);
 });
 

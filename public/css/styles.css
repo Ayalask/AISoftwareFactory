@@ -393,6 +393,55 @@ h1, h2, h3 {
   color: var(--color-warning);
 }
 
+.due-filter,
+.due-sort {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+#due-filter a,
+#due-sort a {
+  padding: var(--space-1) var(--space-2);
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid #E2E8F0;
+}
+
+#due-filter a[aria-current="page"],
+#due-sort a[aria-current="page"] {
+  background: var(--color-primary);
+  color: #ffffff;
+  border-color: var(--color-primary);
+}
+
+.due-badge {
+  font-weight: bold;
+  font-size: 0.75rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: #ffffff;
+}
+
+.due-overdue {
+  background: var(--color-warning);
+}
+
+.due-today {
+  background: var(--color-accent);
+}
+
+.due-this-week {
+  background: var(--color-primary);
+}
+
+.due-date-input {
+  border: 1px solid #CBD5E1;
+  border-radius: 8px;
+  padding: var(--space-1);
+  font-family: inherit;
+}
+
 /* Dashboard */
 
 .dashboard-banner {

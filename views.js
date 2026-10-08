@@ -1,4 +1,5 @@
 const { PRIORITIES, DEFAULT_PRIORITY, priorityLabel } = require('./priority');
+const { DUE_FILTERS, computeDueStatus, dueStatusLabel, compareByDueDate } = require('./dueDate');
 
 const REPO_URL = 'https://github.com/Ayalask/AISoftwareFactory';
 
@@ -116,23 +117,61 @@ ${renderFooter()}
 `;
 }
 
-function renderTodoSection({ todos, basePath, filter, showDashboardLink }) {
-  const visible = filter ? todos.filter((todo) => todo.priority === filter) : todos;
+function buildFilterQuery({ priority, due, sort }) {
+  const params = [];
+  if (priority) {
+    params.push(`priority=${priority}`);
+  }
+  if (due) {
+    params.push(`due=${due}`);
+  }
+  if (sort) {
+    params.push(`sort=${sort}`);
+  }
+  return params.length ? `?${params.join('&')}` : '';
+}
+
+function renderTodoSection({ todos, basePath, filter, dueFilter, sort, showDashboardLink }) {
+  let visible = filter ? todos.filter((todo) => todo.priority === filter) : todos;
+  if (dueFilter) {
+    visible = visible.filter((todo) => computeDueStatus(todo.dueDate) === dueFilter);
+  }
+  if (sort === 'dueDate' || sort === '-dueDate') {
+    visible = [...visible].sort((a, b) => compareByDueDate(a, b, sort === '-dueDate' ? 'desc' : 'asc'));
+  }
+
   const items = visible
-    .map((todo) => `      <li class="todo-item" data-id="${todo.id}" data-priority="${todo.priority}">
+    .map((todo) => {
+      const status = computeDueStatus(todo.dueDate);
+      const badge = status === 'overdue' || status === 'today' || status === 'this-week'
+        ? `<span class="due-badge due-${status}">${dueStatusLabel(status)}</span>`
+        : '';
+      return `      <li class="todo-item" data-id="${todo.id}" data-priority="${todo.priority}" data-due-status="${status}">
         <span class="title">${escapeHtml(todo.title)}</span>
         <span class="priority priority-${todo.priority}">${priorityLabel(todo.priority)}</span>
         <select class="priority-select">
 ${PRIORITIES.map((p) => `          <option value="${p}"${p === todo.priority ? ' selected' : ''}>${priorityLabel(p)}</option>`).join('\n')}
         </select>
-      </li>`)
+        ${badge}
+        <input type="date" class="due-date-input" value="${todo.dueDate || ''}">
+      </li>`;
+    })
     .join('\n');
   const newPriorityOptions = PRIORITIES
     .map((p) => `        <option value="${p}"${p === DEFAULT_PRIORITY ? ' selected' : ''}>${priorityLabel(p)}</option>`)
     .join('\n');
-  const filterLinks = [
-    `      <a href="${basePath}"${!filter ? ' aria-current="page"' : ''}>All</a>`,
-    ...PRIORITIES.map((p) => `      <a href="${basePath}?priority=${p}"${filter === p ? ' aria-current="page"' : ''}>${priorityLabel(p)}</a>`),
+  const priorityFilterLinks = [
+    `      <a href="${basePath}${buildFilterQuery({ due: dueFilter, sort })}"${!filter ? ' aria-current="page"' : ''}>All</a>`,
+    ...PRIORITIES.map((p) => `      <a href="${basePath}${buildFilterQuery({ priority: p, due: dueFilter, sort })}"${filter === p ? ' aria-current="page"' : ''}>${priorityLabel(p)}</a>`),
+  ].join('\n');
+  const dueFilterLinks = [
+    `      <a href="${basePath}${buildFilterQuery({ priority: filter, sort })}"${!dueFilter ? ' aria-current="page"' : ''}>All</a>`,
+    ...DUE_FILTERS.map((d) => `      <a href="${basePath}${buildFilterQuery({ priority: filter, due: d, sort })}"${dueFilter === d ? ' aria-current="page"' : ''}>${dueStatusLabel(d)}</a>`),
+  ].join('\n');
+  const sortLinks = [
+    `      <a href="${basePath}${buildFilterQuery({ priority: filter, due: dueFilter })}"${!sort ? ' aria-current="page"' : ''}>Unsorted</a>`,
+    `      <a href="${basePath}${buildFilterQuery({ priority: filter, due: dueFilter, sort: 'dueDate' })}"${sort === 'dueDate' ? ' aria-current="page"' : ''}>Due date &uarr;</a>`,
+    `      <a href="${basePath}${buildFilterQuery({ priority: filter, due: dueFilter, sort: '-dueDate' })}"${sort === '-dueDate' ? ' aria-current="page"' : ''}>Due date &darr;</a>`,
   ].join('\n');
   const dashboardLink = showDashboardLink
     ? '    <a class="todo-section-link" href="/dashboard">Open the dashboard &rarr;</a>\n'
@@ -145,10 +184,17 @@ ${dashboardLink}    <form id="todo-form" class="todo-form">
       <select id="new-priority" name="priority">
 ${newPriorityOptions}
       </select>
+      <input type="date" id="new-due-date" name="dueDate">
       <button type="submit">Add Todo</button>
     </form>
     <nav id="priority-filter" class="priority-filter">
-${filterLinks}
+${priorityFilterLinks}
+    </nav>
+    <nav id="due-filter" class="due-filter">
+${dueFilterLinks}
+    </nav>
+    <nav id="due-sort" class="due-sort">
+${sortLinks}
     </nav>
     <ul id="todo-list" class="todo-list">
 ${items}
@@ -292,10 +338,10 @@ ${dots}
   </section>`;
 }
 
-function renderHome({ todos, filter }) {
+function renderHome({ todos, filter, dueFilter, sort }) {
   const body = `${renderHeroCarousel()}
 ${renderFeatureCarousel()}
-${renderTodoSection({ todos, basePath: '/', filter, showDashboardLink: true })}`;
+${renderTodoSection({ todos, basePath: '/', filter, dueFilter, sort, showDashboardLink: true })}`;
   return renderLayout({
     title: 'Todo Factory — Organize your work',
     description: 'A fast, dependency-light todo app with priority levels, filtering, and a REST API.',
@@ -305,11 +351,15 @@ ${renderTodoSection({ todos, basePath: '/', filter, showDashboardLink: true })}`
   });
 }
 
-function renderDashboard({ todos, filter }) {
+function renderDashboard({ todos, filter, dueFilter, sort }) {
   const total = todos.length;
   const high = todos.filter((t) => t.priority === 'high').length;
   const medium = todos.filter((t) => t.priority === 'medium').length;
   const low = todos.filter((t) => t.priority === 'low').length;
+  const overdue = todos.filter((t) => computeDueStatus(t.dueDate) === 'overdue').length;
+  const dueToday = todos.filter((t) => computeDueStatus(t.dueDate) === 'today').length;
+  const dueThisWeek = todos.filter((t) => computeDueStatus(t.dueDate) === 'this-week').length;
+  const noDueDate = todos.filter((t) => computeDueStatus(t.dueDate) === 'no-date').length;
   const body = `  <section class="dashboard-banner">
     <h1>Dashboard</h1>
     <p>A live snapshot of everything on your list.</p>
@@ -331,11 +381,27 @@ function renderDashboard({ todos, filter }) {
       <span class="stat-label">Low priority</span>
       <span class="stat-value" data-stat="low">${low}</span>
     </div>
+    <div class="stat-card">
+      <span class="stat-label">Overdue</span>
+      <span class="stat-value" data-stat="overdue">${overdue}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Due today</span>
+      <span class="stat-value" data-stat="due-today">${dueToday}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">Due this week</span>
+      <span class="stat-value" data-stat="due-this-week">${dueThisWeek}</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-label">No due date</span>
+      <span class="stat-value" data-stat="no-due-date">${noDueDate}</span>
+    </div>
   </section>
-${renderTodoSection({ todos, basePath: '/dashboard', filter, showDashboardLink: false })}`;
+${renderTodoSection({ todos, basePath: '/dashboard', filter, dueFilter, sort, showDashboardLink: false })}`;
   return renderLayout({
     title: 'Todo Factory — Dashboard',
-    description: 'A live snapshot of your todos by priority.',
+    description: 'A live snapshot of your todos by priority and due date.',
     activePath: '/dashboard',
     bodyClass: 'page-dashboard',
     body,
@@ -386,7 +452,7 @@ const FAQ_CATEGORIES = [
     items: [
       ['Can I change a todo’s priority later?', 'Yes — use the priority dropdown next to a todo, or call PATCH /api/todos/:id.'],
       ['Is there a dashboard?', 'Yes, at /dashboard — it shows total, high, medium, and low counts alongside your todo list.'],
-      ['Can I mark a todo as completed?', 'Not yet. The current data model only tracks title, priority, and creation time.'],
+      ['Can I mark a todo as completed?', 'Not yet. The current data model only tracks title, priority, due date, and creation time.'],
       ['How many todos can I store?', 'Up to 100. Creating a 101st todo returns an error.'],
       ['Is there a limit on title length?', 'Yes — titles must be shorter than 200 characters.'],
     ],
