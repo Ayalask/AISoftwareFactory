@@ -1,12 +1,15 @@
 const express = require('express');
+const path = require('path');
 const { randomUUID } = require('crypto');
 const { execFileSync } = require('child_process');
+const { PRIORITIES, DEFAULT_PRIORITY, normalizePriority } = require('./priority');
+const views = require('./views');
 
 const PORT = process.env.PORT || 8000;
 const MAX_TITLE_LENGTH = 200;
 const MAX_TODOS = 100;
-const PRIORITIES = ['low', 'medium', 'high'];
-const DEFAULT_PRIORITY = 'medium';
+const MAX_CONTACT_FIELD_LENGTH = 200;
+const MAX_CONTACT_MESSAGE_LENGTH = 2000;
 
 function getBuildId() {
   try {
@@ -19,109 +22,32 @@ function getBuildId() {
 const BUILD_ID = getBuildId();
 const todos = [];
 
-function escapeHtml(value) {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
+function invalidPriorityPage() {
+  return `<!DOCTYPE html>\n<html lang="en"><body><h1>Invalid priority</h1>` +
+    `<p>priority must be one of ${PRIORITIES.join(', ')}</p></body></html>\n`;
 }
 
-function normalizePriority(value) {
-  if (typeof value !== 'string') {
-    return null;
+function resolvePriorityFilter(req, res) {
+  const requested = req.query.priority;
+  if (requested === undefined) {
+    return { filter: null, ok: true };
   }
-  const normalized = value.trim().toLowerCase();
-  return PRIORITIES.includes(normalized) ? normalized : null;
+  const filter = normalizePriority(requested);
+  if (filter === null) {
+    res.status(400).type('html').send(invalidPriorityPage());
+    return { filter: null, ok: false };
+  }
+  return { filter, ok: true };
 }
 
-function priorityLabel(priority) {
-  return priority.charAt(0).toUpperCase() + priority.slice(1);
-}
-
-function renderPage(filter) {
-  const visible = filter ? todos.filter((todo) => todo.priority === filter) : todos;
-  const items = visible
-    .map((todo) => `    <li data-id="${todo.id}" data-priority="${todo.priority}">
-      <span class="title">${escapeHtml(todo.title)}</span>
-      <span class="priority priority-${todo.priority}">${priorityLabel(todo.priority)}</span>
-      <select class="priority-select">
-${PRIORITIES.map((p) => `        <option value="${p}"${p === todo.priority ? ' selected' : ''}>${priorityLabel(p)}</option>`).join('\n')}
-      </select>
-    </li>`)
-    .join('\n');
-  const newPriorityOptions = PRIORITIES
-    .map((p) => `      <option value="${p}"${p === DEFAULT_PRIORITY ? ' selected' : ''}>${priorityLabel(p)}</option>`)
-    .join('\n');
-  const filterLinks = [
-    `    <a href="/"${!filter ? ' aria-current="page"' : ''}>All</a>`,
-    ...PRIORITIES.map((p) => `    <a href="/?priority=${p}"${filter === p ? ' aria-current="page"' : ''}>${priorityLabel(p)}</a>`),
-  ].join('\n');
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Todo List</title>
-  <style>
-    .priority { font-weight: bold; }
-    .priority-low { color: #2a7a2a; }
-    .priority-medium { color: #b8860b; }
-    .priority-high { color: #c0392b; }
-  </style>
-</head>
-<body>
-  <h1>Todo List</h1>
-  <form id="todo-form">
-    <input type="text" id="title" name="title" placeholder="What needs doing?" required>
-    <select id="new-priority" name="priority">
-${newPriorityOptions}
-    </select>
-    <button type="submit">Add Todo</button>
-  </form>
-  <nav id="priority-filter">
-${filterLinks}
-  </nav>
-  <ul id="todo-list">
-${items}
-  </ul>
-  <script>
-    document.getElementById('todo-form').addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const input = document.getElementById('title');
-      const priority = document.getElementById('new-priority');
-      const response = await fetch('/api/todos', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: input.value, priority: priority.value }),
-      });
-      if (response.ok) {
-        window.location.reload();
-      }
-    });
-
-    document.getElementById('todo-list').addEventListener('change', async (event) => {
-      if (!event.target.classList.contains('priority-select')) {
-        return;
-      }
-      const id = event.target.closest('li').dataset.id;
-      const response = await fetch('/api/todos/' + id, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priority: event.target.value }),
-      });
-      if (response.ok) {
-        window.location.reload();
-      }
-    });
-  </script>
-</body>
-</html>
-`;
+function isValidContactEmail(email) {
+  const at = email.indexOf('@');
+  return at > 0 && at < email.length - 1 && email.indexOf('@', at + 1) === -1;
 }
 
 const app = express();
 app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
@@ -132,14 +58,39 @@ app.get('/build-id', (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  const requested = req.query.priority;
-  const filter = requested === undefined ? null : normalizePriority(requested);
-  if (filter === null && requested !== undefined) {
-    return res.status(400).type('html').send(
-      `<!DOCTYPE html>\n<html lang="en"><body><h1>Invalid priority</h1>` +
-      `<p>priority must be one of ${PRIORITIES.join(', ')}</p></body></html>\n`);
+  const { filter, ok } = resolvePriorityFilter(req, res);
+  if (!ok) {
+    return;
   }
-  res.type('html').send(renderPage(filter));
+  res.type('html').send(views.renderHome({ todos, filter }));
+});
+
+app.get('/dashboard', (req, res) => {
+  const { filter, ok } = resolvePriorityFilter(req, res);
+  if (!ok) {
+    return;
+  }
+  res.type('html').send(views.renderDashboard({ todos, filter }));
+});
+
+app.get('/about', (req, res) => {
+  res.type('html').send(views.renderAbout());
+});
+
+app.get('/faq', (req, res) => {
+  res.type('html').send(views.renderFaq());
+});
+
+app.get('/features', (req, res) => {
+  res.type('html').send(views.renderFeatures());
+});
+
+app.get('/contact', (req, res) => {
+  res.type('html').send(views.renderContact());
+});
+
+app.get('/legal', (req, res) => {
+  res.type('html').send(views.renderLegal());
 });
 
 app.post('/api/todos', (req, res) => {
@@ -178,6 +129,29 @@ app.patch('/api/todos/:id', (req, res) => {
   }
   todo.priority = priority;
   res.json(todo);
+});
+
+app.post('/api/contact', (req, res) => {
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+  const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+  const subject = typeof req.body?.subject === 'string' ? req.body.subject.trim() : '';
+  const message = typeof req.body?.message === 'string' ? req.body.message.trim() : '';
+
+  if (!name || !email || !subject || !message) {
+    return res.status(400).json({ error: 'name, email, subject, and message are all required' });
+  }
+  if (name.length > MAX_CONTACT_FIELD_LENGTH || subject.length > MAX_CONTACT_FIELD_LENGTH) {
+    return res.status(400).json({ error: `name and subject must be ${MAX_CONTACT_FIELD_LENGTH} characters or fewer` });
+  }
+  if (message.length > MAX_CONTACT_MESSAGE_LENGTH) {
+    return res.status(400).json({ error: `message must be ${MAX_CONTACT_MESSAGE_LENGTH} characters or fewer` });
+  }
+  if (!isValidContactEmail(email)) {
+    return res.status(400).json({ error: 'email must be a valid email address' });
+  }
+
+  console.log(`Contact form submission from ${name} <${email}>: ${subject}`);
+  res.status(201).json({ status: 'received' });
 });
 
 if (require.main === module) {
